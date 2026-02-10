@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>👤 ユーザー管理</h2>
+
+    <!-- 登録フォーム -->
+    <div class="card mt-4">
+        <div class="card-header">ユーザーを追加</div>
+        <div class="card-body">
+            <form id="user-form">
+                <div class="row">
+                    <div class="col-md-5 mb-3">
+                        <input type="text" id="user-name" class="form-control"
+                               placeholder="名前" required>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <select id="user-role" class="form-select">
+                            <option value="student">学生</option>
+                            <option value="admin">理事</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <button type="submit" class="btn btn-primary w-100">追加</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ユーザー一覧 -->
+    <div class="card mt-4">
+        <div class="card-header">登録済みユーザー</div>
+        <div class="card-body">
+            <table class="table" id="user-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>名前</th>
+                        <th>役割</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="user-list">
+                </tbody>
+            </table>
+            <p id="no-users" style="display:none;" class="text-muted">
+                まだユーザーが登録されていません
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ユーザー一覧を読み込む
+    function loadUsers() {
+        fetch('/api/users')
+            .then(res => res.json())
+            .then(users => {
+                const tbody = document.getElementById('user-list');
+                const noUsers = document.getElementById('no-users');
+                tbody.innerHTML = '';
+
+                if (users.length === 0) {
+                    noUsers.style.display = 'block';
+                    return;
+                }
+                noUsers.style.display = 'none';
+
+                users.forEach(user => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML =
+                        '<td>' + user.id + '</td>' +
+                        '<td>' + user.name + '</td>' +
+                        '<td>' + (user.role === 'admin' ? '理事' : '学生') + '</td>' +
+                        '<td><button class="btn btn-outline-danger btn-sm" onclick="deleteUser(' + user.id + ', \'' + user.name + '\')">削除</button></td>';
+                    tbody.appendChild(tr);
+                });
+            });
+    }
+
+    // ユーザー追加
+    document.getElementById('user-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = document.getElementById('user-name').value;
+        const role = document.getElementById('user-role').value;
+
+        fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, role: role })
+        })
+        .then(res => res.json())
+        .then(() => {
+            document.getElementById('user-name').value = '';
+            loadUsers();
+        })
+        .catch(err => alert('エラー: ' + err));
+    });
+
+    // ユーザー削除
+    function deleteUser(id, name) {
+        if (!confirm(name + ' さんを削除しますか？')) return;
+
+        fetch('/api/users/' + id, { method: 'DELETE' })
+        .then(res => {
+            if (!res.ok) return res.json().then(err => { throw err; });
+            return res.json();
+        })
+        .then(() => loadUsers())
+        .catch(err => alert('エラー: ' + (err.detail || '削除に失敗しました')));
+    }
+
+    // 初回読み込み
+    loadUsers();
+</script>
+{% endblock %}

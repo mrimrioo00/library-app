@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <a href="/books" class="text-decoration-none mb-3 d-inline-block">← 一覧に戻る</a>
+
+    <div class="row mt-3">
+        <div class="col-md-4 text-center">
+            {% if book.cover_url %}
+                <img src="{{ book.cover_url }}" alt="{{ book.title }}" class="detail-cover">
+            {% else %}
+                <div class="no-cover-large">📖<br>{{ book.title[:10] }}</div>
+            {% endif %}
+        </div>
+
+        <div class="col-md-8">
+            <h2>{{ book.title }}
+                <button id="delete-btn" class="btn btn-outline-danger btn-sm ms-2">🗑 削除</button>
+            </h2>
+            {% if book.isbn %}
+                <p class="text-muted">ISBN: {{ book.isbn }}</p>
+            {% endif %}
+
+            {% if book.description %}
+                <p class="mt-3">{{ book.description }}</p>
+            {% endif %}
+
+            {% if book.owner_name %}
+                <p>📤 提供者: {{ book.owner_name }}</p>
+            {% endif %}
+
+            <hr>
+
+            {% if book.is_available %}
+                <div class="alert alert-success">🟢 貸出可能です</div>
+                <form id="lend-form" class="mt-3">
+                    <div class="mb-3">
+                        <label class="form-label">借りる人</label>
+                        <select id="borrower-select" class="form-select" required>
+                            <option value="">選択してください</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">返却期限</label>
+                        <input type="date" id="due-date" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">この本を借りる</button>
+                </form>
+            {% else %}
+                <div class="alert alert-warning">
+                    🔴 貸出中: {{ book.borrower_name }} さん（{{ book.due_date }} まで）
+                </div>
+                <button id="return-btn" class="btn btn-outline-success">返却する</button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    const bookId = {{ book.id }};
+
+    // 返却期限を2週間後に自動設定
+    const dueDateInput = document.getElementById('due-date');
+    if (dueDateInput) {
+        const twoWeeks = new Date();
+        twoWeeks.setDate(twoWeeks.getDate() + 14);
+        dueDateInput.value = twoWeeks.toISOString().split('T')[0];
+    }
+
+    // ユーザー一覧を取得してセレクトボックスに入れる
+    fetch('/api/users')
+        .then(res => res.json())
+        .then(users => {
+            const select = document.getElementById('borrower-select');
+            if (select) {
+                users.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = user.name + '（' + (user.role === 'admin' ? '理事' : '学生') + '）';
+                    select.appendChild(option);
+                });
+            }
+        });
+
+    // 貸し出し処理
+    const lendForm = document.getElementById('lend-form');
+    if (lendForm) {
+        lendForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const borrowerId = document.getElementById('borrower-select').value;
+            const dueDate = document.getElementById('due-date').value;
+
+            fetch('/api/books/' + bookId + '/lend', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    borrower_id: parseInt(borrowerId),
+                    due_date: dueDate
+                })
+            })
+            .then(res => {
+                if (!res.ok) return res.json().then(err => { throw err; });
+                return res.json();
+            })
+            .then(() => {
+                alert('貸し出しを記録しました！');
+                location.reload();
+            })
+            .catch(err => alert('エラー: ' + (err.detail || '貸し出しに失敗しました')));
+        });
+    }
+
+    // 返却処理
+    const returnBtn = document.getElementById('return-btn');
+    if (returnBtn) {
+        returnBtn.addEventListener('click', () => {
+            if (!confirm('この本を返却しますか？')) return;
+
+            fetch('/api/books/' + bookId + '/return', { method: 'PUT' })
+            .then(res => {
+                if (!res.ok) return res.json().then(err => { throw err; });
+                return res.json();
+            })
+            .then(() => {
+                alert('返却を記録しました！');
+                location.reload();
+            })
+            .catch(err => alert('エラー: ' + (err.detail || '返却に失敗しました')));
+        });
+    }
+
+    // 削除処理
+    const deleteBtn = document.getElementById('delete-btn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', () => {
+            if (!confirm('この本を削除しますか？この操作は取り消せません。')) return;
+
+            fetch('/api/books/' + bookId, { method: 'DELETE' })
+            .then(res => {
+                if (!res.ok) return res.json().then(err => { throw err; });
+                return res.json();
+            })
+            .then(() => {
+                alert('本を削除しました');
+                location.href = '/books';
+            })
+            .catch(err => alert('エラー: ' + (err.detail || '削除に失敗しました')));
+        });
+    }
+</script>
+{% endblock %}

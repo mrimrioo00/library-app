@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="bookshelf">
+    <div class="shelf-container">
+        {% if books %}
+            {% for book in books %}
+            <a href="/books/{{ book.id }}" class="book-card">
+                <div class="book-cover">
+                    {% if book.cover_url %}
+                        <img src="{{ book.cover_url }}" alt="{{ book.title }}">
+                    {% else %}
+                        <div class="no-cover">📖<br>{{ book.title[:6] }}</div>
+                    {% endif %}
+                    {% if book.is_available %}
+                        <span class="badge-available">貸出可</span>
+                    {% else %}
+                        <span class="badge-lending">貸出中</span>
+                    {% endif %}
+                </div>
+                <div class="book-info">
+                    <p class="book-title">{{ book.title[:15] }}{% if book.title|length > 15 %}...{% endif %}</p>
+                </div>
+            </a>
+            {% endfor %}
+        {% else %}
+            <div class="empty-message">
+                <p>まだ本が登録されていません</p>
+                <a href="/books/new" class="btn btn-primary">最初の1冊を登録する</a>
+            </div>
+        {% endif %}
+    </div>
+    <div class="shelf-wood"></div>
+</div>
+{% endblock %}
